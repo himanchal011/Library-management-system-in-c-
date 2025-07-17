@@ -1,0 +1,164 @@
+#include <iostream>
+#include <vector>
+#include <fstream>
+#include <memory>
+#include <string>
+#include <limits>
+
+using namespace std;
+
+class Book {
+public:
+    int id;
+    string name;
+    string author;
+    string student;
+    int price;
+    int pages;
+
+    void input() {
+        id = getValidatedInt("Enter Book ID: ");
+        cin.ignore();
+        name = getValidatedString("Enter Book Name: ");
+        author = getValidatedString("Enter Author Name: ");
+        student = getValidatedString("Enter Student Name: ");
+        price = getValidatedInt("Enter Price: ");
+        pages = getValidatedInt("Enter Number of Pages: ");
+    }
+
+    void display() const {
+        cout << "\nBook ID: " << id << endl;
+        cout << "Book Name: " << name << endl;
+        cout << "Author: " << author << endl;
+        cout << "Issued to: " << student << endl;
+        cout << "Price: " << price << endl;
+        cout << "Pages: " << pages << endl;
+    }
+
+    void save(ofstream &out) const {
+        out << id << '\n' << name << '\n' << author << '\n'
+            << student << '\n' << price << '\n' << pages << '\n';
+    }
+
+    static unique_ptr<Book> load(ifstream &in) {
+        unique_ptr<Book> book(new Book());
+        if (!(in >> book->id)) return nullptr;
+        in.ignore();
+        getline(in, book->name);
+        getline(in, book->author);
+        getline(in, book->student);
+        if (!(in >> book->price >> book->pages)) return nullptr;
+        in.ignore();
+        return book;
+    }
+
+private:
+    int getValidatedInt(const string& prompt) {
+        int value;
+        while (true) {
+            cout << prompt;
+            if (cin >> value) return value;
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid input. Please enter a valid number.\n";
+        }
+    }
+
+    string getValidatedString(const string& prompt) {
+        string input;
+        while (true) {
+            cout << prompt;
+            getline(cin, input);
+            if (!input.empty()) return input;
+            cout << "Input cannot be empty. Please enter again.\n";
+        }
+    }
+};
+
+class Library {
+private:
+    vector<unique_ptr<Book>> books;
+    const string dataFile = "library_data.txt";
+
+public:
+    void run() {
+        loadFromFile();
+        int choice;
+        while (true) {
+            cout << "\n1. Add Book\n2. Display All Books\n3. Exit\nEnter choice: ";
+            if (!(cin >> choice)) {
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                cout << "Invalid input. Please enter a valid number.\n";
+                continue;
+            }
+
+            cin.ignore();
+            switch (choice) {
+                case 1:
+                    addBook();
+                    break;
+                case 2:
+                    displayBooks();
+                    break;
+                case 3:
+                    saveToFile();
+                    cout << "Exiting...\n";
+                    return;
+                default:
+                    cout << "Invalid choice. Try again.\n";
+            }
+        }
+    }
+
+private:
+    void addBook() {
+        try {
+            unique_ptr<Book> newBook(new Book());
+            newBook->input();
+            books.push_back(move(newBook));
+            cout << "Book added successfully!\n";
+        } catch (const exception &e) {
+            cerr << "Error adding book: " << e.what() << endl;
+        }
+    }
+
+    void displayBooks() const {
+        if (books.empty()) {
+            cout << "No books available.\n";
+            return;
+        }
+        for (const auto &book : books) {
+            book->display();
+        }
+    }
+
+    void saveToFile() const {
+        ofstream out(dataFile);
+        if (!out) {
+            cerr << "Error saving to file.\n";
+            return;
+        }
+        for (const auto &book : books) {
+            book->save(out);
+        }
+    }
+
+    void loadFromFile() {
+        ifstream in(dataFile);
+        if (!in) {
+            cerr << "No previous data found.\n";
+            return;
+        }
+        while (!in.eof()) {
+            auto book = Book::load(in);
+            if (book) books.push_back(move(book));
+        }
+    }
+};
+
+int main() {
+    Library lib;
+    lib.run();
+    return 0;
+}
